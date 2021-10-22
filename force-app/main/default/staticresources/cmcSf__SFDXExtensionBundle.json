@@ -1,0 +1,532 @@
+{
+  "recordTypeMap": {},
+  "RecordSetBundles": [
+    {
+      "Records": [
+        {
+          "attributes": {
+            "type": "copado__Function__c",
+            "url": "/services/data/v52.0/sobjects/copado__Function__c/a0k09000000FKgfAAG"
+          },
+          "copado__API_Name__c": "Devhub_Package_Info",
+          "copado__Description__c": "Extracts package and package versions info from a DevHub",
+          "copado__Image_Name__c": "us.gcr.io/copado/copado-multicloud-metadata:v1.2",
+          "copado__Options__c": "[ ]",
+          "copado__Parameters__c": "[ {\n  \"required\" : true,\n  \"name\" : \"PACKAGE\"\n}, {\n  \"required\" : true,\n  \"name\" : \"SESSION\",\n  \"defaultValue\" : \"{$Source.Credential.SessionId}\"\n}, {\n  \"required\" : true,\n  \"name\" : \"BASEURL\",\n  \"defaultValue\" : \"{$Source.Credential.Endpoint}\"\n} ]",
+          "copado__Script__c": "#!/usr/bin/env node\n\nconst execSync = require(\"child_process\").execSync;\n\nconst url = process.env['BASEURL'];\nconst baseurl = url.substring(0, url.indexOf(\"/\", url.indexOf(\"/\") + 2));\nconst session = process.env['SESSION'];\nconst pkgnameorId = process.env['PACKAGE'];\n\nlet resultObj = '\\'No results found\\'';\n\nconst setup = `\n\tcopado -p 'Setting instance url'\n    sfdx force:config:set instanceUrl=${baseurl} --global\n    \n    copado -p 'Creating Temp Project'\n    sfdx force:project:create -n temp\n    \n    copado -p 'Getting Package Info'\n`;\nexecSync(setup);\n\nconst listPackages = `    \n    cd temp\n    sfdx force:package:list -v ${session} --json\n`;\nconst packages = JSON.parse(execSync(listPackages).toString());\nconst pkg = packages.result.find(\n  (element) => element.Name == pkgnameorId || element.Id == pkgnameorId\n);\n\nif(pkg) {\n  const listVersions = `\n      cd temp\n      sfdx force:package:version:list -v ${session} -p ${pkg.Id} --json\n  `;\n\n  const versions = JSON.parse(execSync(listVersions).toString());\n\n  resultObj = JSON.stringify({ pkg: pkg, versions: versions.result });\n}\n\nconst result = `\n\tcopado -p 'Updating Results' -r '${resultObj}'\n`;\nexecSync(result);",
+          "copado__Type__c": "Standard",
+          "copado__Version__c": "1.0",
+          "copado__Worker_Size__c": "S",
+          "CreatedDate": "2021-09-16T15:20:01.000+0000",
+          "Id": "a0k09000000FKgfAAG",
+          "IsDeleted": false,
+          "LastModifiedDate": "2021-09-28T13:50:51.000+0000",
+          "LastReferencedDate": "2021-09-29T14:36:54.000+0000",
+          "LastViewedDate": "2021-09-29T14:36:54.000+0000",
+          "Name": "Devhub Package Info",
+          "SystemModstamp": "2021-09-28T13:50:51.000+0000"
+        },
+        {
+          "attributes": {
+            "type": "copado__Function__c",
+            "url": "/services/data/v52.0/sobjects/copado__Function__c/a0k09000000FKggAAG"
+          },
+          "copado__API_Name__c": "sfdx_install_package",
+          "copado__Callback_Type__c": "Flow",
+          "copado__FlowHandler__c": "cmcSf.Installed_Package_Callback",
+          "copado__Image_Name__c": "us.gcr.io/copado/copado-multicloud-metadata:v1.2",
+          "copado__Options__c": "[ ]",
+          "copado__Parameters__c": "[ {\n  \"required\" : true,\n  \"name\" : \"PACKAGES\"\n}, {\n  \"required\" : true,\n  \"name\" : \"BASEURL\",\n  \"defaultValue\" : \"{$Destination.Credential.Endpoint}\"\n}, {\n  \"required\" : true,\n  \"name\" : \"SESSION\",\n  \"defaultValue\" : \"{$Destination.Credential.SessionId}\"\n}, {\n  \"required\" : false,\n  \"name\" : \"WAIT\",\n  \"defaultValue\" : \"200\"\n} ]",
+          "copado__Script__c": "#!/usr/bin/env node\n\nconst execSync = require(\"child_process\").execSync;\n\nconst packages = JSON.parse(process.env['PACKAGES']);\nconst url = process.env['BASEURL'];\nconst baseurl = url.substring(0, url.indexOf(\"/\", url.indexOf(\"/\") + 2));\nconst session = process.env['SESSION'];\nconst wait = process.env['WAIT'];\n\nlet subscriberIds = [];\n\npackages.dependencies.push(packages.packageVersion);\n\nconst setUrl = `\n\tcopado -p 'Setting instance url'\n    sfdx force:config:set instanceUrl=${baseurl} --global\n`;\nexecSync(setUrl);\n\nfor (const package of packages.dependencies) {\n\tif(package.id) {\n    \tlet params = `-u ${session} -p ${package.id} -w ${wait}`;\n    \tparams = package.key ? `${params} -k ${package.key}` : params;\n        \n        const installPackage = ` \n        \tcopado -p 'Installing package '${package.id}\n            sfdx force:package:install ${params}\n            copado -p 'Package '${package.id}' Installed correctly'\n        `;\n        \n\t\texecSync(installPackage);\n        \n        subscriberIds.push(package.id);\n    }\n}\n\nconst resultPackages = JSON.stringify(packages.dependencies);\nconst result = `\n\tcopado -p 'Updating Results' -r ${subscriberIds}\n`;\n\nexecSync(result);",
+          "copado__Timeout__c": 200,
+          "copado__Type__c": "Standard",
+          "copado__Version__c": "1.0",
+          "copado__Worker_Size__c": "S",
+          "CreatedDate": "2021-09-16T15:20:01.000+0000",
+          "Id": "a0k09000000FKggAAG",
+          "IsDeleted": false,
+          "LastModifiedDate": "2021-09-28T13:49:44.000+0000",
+          "LastReferencedDate": "2021-09-30T06:48:30.000+0000",
+          "LastViewedDate": "2021-09-30T06:48:30.000+0000",
+          "Name": "Sfdx Install Package",
+          "SystemModstamp": "2021-09-28T13:49:44.000+0000"
+        },
+        {
+          "attributes": {
+            "type": "copado__Function__c",
+            "url": "/services/data/v52.0/sobjects/copado__Function__c/a1t5f0000011UX1AAM"
+          },
+          "copado__API_Name__c": "sfdx_move_metadata_changes",
+          "copado__Image_Name__c": "us.gcr.io/copado-backend-functions-prod/copado-multicloud-dx:v1",
+          "copado__Options__c": "[ ]",
+          "copado__Parameters__c": "[ {\n  \"required\" : false,\n  \"name\" : \"file_changes_id\",\n  \"defaultValue\" : \"{$Context.JobExecution__r.DataJson.fileWithSelectedChanges}\"\n} ]",
+          "copado__Script__c": "sfdx_move_commited_files() {\ndefault_sfdx_path='force-app/main/default'\nretrieve_path=\"app/retrieve\"\ngit_repository_path=\"app/repository\"\nmoved_metadata_path=\"app/moved\"\nmkdir -p /$moved_metadata_path\ncopado --downloadfiles \"$file_changes_id\" --downloaddir /tmp/\n\ncommited_changes_file=$(</tmp/Copado\\ Commit\\ changes.json)\nsfdx_retrieve_output_file=$(</app/sfdx_retrieve_result.json)\n\n\nreadarray -t copado_commit_changes < <(jq -r -c '.[]' <<< $commited_changes_file)\n\ninboud_files_list=$(jq '.result .inboundFiles' <<< $sfdx_retrieve_output_file)\necho $inboud_files_list;\nreadarray -t sfdx_retrieve_output < <(jq -r -c '.[]' <<< $inboud_files_list)\n\nfor commited_change in \"${copado_commit_changes[@]}\"; do\n\tcommited_destination_path=$(jq -r '.m' <<< $commited_change)\n    commited_name=$(jq -r '.n' <<< $commited_change)\n\tcommited_type=$(jq -r '.t' <<< $commited_change)\n    commited_action=$(jq -r '.a' <<< $commited_change)\n    \n    echo \"commited_destination_path: $commited_destination_path\"\n    echo \"commited_name: $commited_name\"\n\techo \"commited_name: $commited_type\"\n    echo \"commited_name: $commited_action\"\n\n    if [ \"$commited_action\" == \"Deleted\" ]\n\tthen\n    \tcommited_path_remove=\"/$/$commited_destination_path\"    \t\n        remove_ocurrences_count=$(find $commited_path_remove -name \"$commited_name.*\" -not -name \"$commited_name.*-meta.xml\" -type f | wc -l)\n        if [ 1 == $remove_ocurrences_count ]\n        then\n        \tremove_ocurrences=$(find $commited_path_remove -name \"$commited_name.*\" -type f)  \n        \techo \"deleting $commited_name file from $commited_path_remove and empty upper folders\"\n            \n            #find $commited_path_remove -name \"$commited_name.*\" -type f -delete\n            #find \"$commited_path_remove\" -type d -empty -delete\n        else\n        \techo \"Error removing /$moved_metadata_path/$commited_path_remove/$commited_name.*, $remove_ocurrences_count occurrences found for the same file name\"\n        fi\n    else\n      for inbound_file in \"${sfdx_retrieve_output[@]}\"; do\n        inbound_file_type=$(jq -r '.type' <<< $inbound_file)\n        inbound_file_full_name=$(jq -r '.fullName' <<< $inbound_file)\n        inbound_file_state=$(jq -r '.state' <<< $inbound_file)\n        if [ \"$inbound_file_state\" == \"Failed\" ]\n        then\n          echo \"Error in file $inbound_file_full_name\"\n        elif [ \"$commited_name\" == \"$inbound_file_full_name\" -a $commited_type == $inbound_file_type ]\n        then\n              inbound_file_path=$(jq -r '.filePath' <<< $inbound_file)\n  \n              destination_path_name=\"${inbound_file_path/$default_sfdx_path/$commited_destination_path}\"\n              destination_path_name=\"${destination_path_name/$retrieve_path/$moved_metadata_path}\"\n              destination_path=${destination_path_name%/*}\n\n              echo \"destination_path_name: $destination_path_name\"\n              echo \"destination_path: $destination_path\"\n\n\n              if [ \"$inbound_file_path\" != \"$destination_path_name\" ]\n              then\n                if [ ! -d \"$destination_path\" ]\n                  then\n                    echo \"creating $destination_path\"\n                      mkdir -p \"$destination_path\"\n                fi\n  \n                  echo \"Mv from $inbound_file_path to $destination_path_name\"\n                  cp \"$inbound_file_path\" \"$destination_path_name\" || { copado -p \"Error\" -e \"Error moving $inbound_file_path to $destination_path_name\" && exit 0; }\n              fi\n        fi        \n      done\n    fi\ndone\n}\nsfdx_move_commited_files",
+          "copado__Type__c": "Standard",
+          "copado__Worker_Size__c": "S",
+          "CreatedDate": "2021-09-23T12:42:23.000+0000",
+          "Id": "a1t5f0000011UX1AAM",
+          "IsDeleted": false,
+          "LastModifiedDate": "2021-10-05T05:03:16.000+0000",
+          "LastReferencedDate": "2021-10-05T05:03:16.000+0000",
+          "LastViewedDate": "2021-10-05T05:03:16.000+0000",
+          "Name": "sfdx_move_metadata_changes",
+          "SystemModstamp": "2021-10-05T05:03:16.000+0000"
+        },
+        {
+          "attributes": {
+            "type": "copado__Function__c",
+            "url": "/services/data/v52.0/sobjects/copado__Function__c/a1t5f0000011G1PAAU"
+          },
+          "copado__API_Name__c": "sfdx_git_commit",
+          "copado__Image_Name__c": "us.gcr.io/copado-backend-functions-prod/copado-multicloud-dx:v1",
+          "copado__Options__c": "[ ]",
+          "copado__Parameters__c": "[ {\n  \"required\" : false,\n  \"name\" : \"commit_message\",\n  \"defaultValue\" : \"{$Context.JobExecution__r.DataJson.message}\"\n}, {\n  \"required\" : false,\n  \"name\" : \"git_json\",\n  \"defaultValue\" : \"{$Context.Repository.Credential}\"\n}, {\n  \"required\" : false,\n  \"name\" : \"git_email\",\n  \"defaultValue\" : \"{$User.Email}\"\n}, {\n  \"required\" : false,\n  \"name\" : \"git_name\",\n  \"defaultValue\" : \"{$User.Name}\"\n} ]",
+          "copado__Script__c": "sfdx_git_commit(){\ncopado -p \"Committing $commit_message\"\ncd /app/repository\ngit config --local user.email \"$git_email\"\ngit config --local user.name \"$git_name\"\ngit add .\ngit status\ngit commit -m \"$commit_message\" || { copado -p \"Error\" -e \"There are no changes to be committed\" && exit 0; }\n}\nsfdx_git_commit",
+          "copado__Type__c": "Standard",
+          "copado__Worker_Size__c": "S",
+          "CreatedDate": "2021-09-09T05:40:18.000+0000",
+          "Id": "a1t5f0000011G1PAAU",
+          "IsDeleted": false,
+          "LastModifiedDate": "2021-10-05T11:52:05.000+0000",
+          "LastReferencedDate": "2021-10-05T11:52:05.000+0000",
+          "LastViewedDate": "2021-10-05T11:52:05.000+0000",
+          "Name": "sfdx_git_commit",
+          "SystemModstamp": "2021-10-05T11:52:05.000+0000"
+        },
+        {
+            "attributes": {
+              "type": "copado__Function__c",
+              "url": "/services/data/v52.0/sobjects/copado__Function__c/a1t5f0000011DABAA2"
+            },
+            "copado__API_Name__c": "sfdx_fetch_create_branch",
+            "copado__Image_Name__c": "us.gcr.io/copado/copado-function-core:v1",
+            "copado__Options__c": "[ ]",
+            "copado__Parameters__c": "[ {\n  \"required\" : false,\n  \"name\" : \"feature_branch\",\n  \"defaultValue\" : \"{$Context.JobExecution__r.DataJson.featureBranchName}\"\n}, {\n  \"required\" : false,\n  \"name\" : \"base_branch\",\n  \"defaultValue\" : \"{$Context.JobExecution__r.DataJson.baseBranch}\"\n}, {\n  \"required\" : false,\n  \"name\" : \"recreate_if_exists\",\n  \"defaultValue\" : \"{$Context.JobExecution__r.DataJson.recreateFeatureBranch}\"\n}, {\n  \"required\" : false,\n  \"name\" : \"git_json\",\n  \"defaultValue\" : \"{$Context.Repository.Credential}\"\n} ]",
+            "copado__Script__c": "core_git_fetch_create(){\nmkdir -p /app/repository && cd /app/repository\ngit_depth=${git_depth:-100}\ncopado -p \"Fetching Git branches: $feature_branch\"\ncopado-git-get --depth \"$git_depth\" \"$base_branch\"\n   if [ -n \"$feature_branch\" ]; then\n      if [ \"$recreate_if_exists\" == \"true\" ]; then\n        copado -p \"Removing branch $feature_branch\"\n        git branch -D \"$feature_branch\" || true\n        git push origin --delete \"$feature_branch\" || true\n      fi\n      copado -p \"Fetching/creating branch $feature_branch\"\n      copado-git-get -c \"$feature_branch\"\n  fi\n}\ncore_git_fetch_create",
+            "copado__Type__c": "Standard",
+            "copado__Version__c": "1",
+            "copado__Worker_Size__c": "S",
+            "CreatedDate": "2021-09-05T21:53:53.000+0000",
+            "Id": "a1t5f0000011DABAA2",
+            "IsDeleted": false,
+            "LastModifiedDate": "2021-10-06T11:54:20.000+0000",
+            "LastReferencedDate": "2021-10-06T11:54:20.000+0000",
+            "LastViewedDate": "2021-10-06T11:54:20.000+0000",
+            "Name": "sfdx_fetch_create_branch",
+            "SystemModstamp": "2021-10-06T11:54:20.000+0000"
+        },
+        {
+          "attributes": {
+            "type": "copado__Function__c",
+            "url": "/services/data/v52.0/sobjects/copado__Function__c/a1t5f0000011DWqAAM"
+          },
+          "copado__API_Name__c": "retrieve_org_metadata",
+          "copado__Description__c": "This function retrieves selected metadata (files) from source org.",
+          "copado__Image_Name__c": "us.gcr.io/copado-backend-functions-prod/copado-multicloud-dx:v1",
+          "copado__Options__c": "[ ]",
+          "copado__Parameters__c": "[ {\n  \"required\" : true,\n  \"name\" : \"source_sessionid\",\n  \"defaultValue\" : \"{$Source.Credential.SessionId}\"\n}, {\n  \"required\" : true,\n  \"name\" : \"source_endpoint\",\n  \"defaultValue\" : \"{$Source.Credential.Endpoint}\"\n}, {\n  \"required\" : false,\n  \"name\" : \"namespace\"\n}, {\n  \"required\" : false,\n  \"name\" : \"source_path\",\n  \"defaultValue\" : \"force-app\"\n} ]",
+          "copado__Script__c": "# Parameters\nmetadata_list=\"\"\ncopado -p \"Retrieving the metadata\"\n\ncopadodx_prepare_sfdx_project(){\n  source_endpoint=($(node -p \"('$source_endpoint').substring(0, '$source_endpoint'.indexOf('.com') + 4)\"))\n  copado -p \"Preparing sfdx project configuration\"\n  cd /app\n  mkdir -p /app/retrieve/.sfdx\n  cd /app/retrieve\n  mkdir -p \"force-app\"\ncat << __EOF__ > \".sfdx/sfdx-config.json\"\n  {\n  \"instanceUrl\": \"$source_endpoint\"\n  }\n__EOF__\ncat << __EOF__ > \"sfdx-project.json\"\n  {\n      \"namespace\": \"$namespace\",\n      \"packageDirectories\": [\n          {\n          \"path\": \"$source_path\",\n          \"default\": true\n          }\n      ],\n    \"sfdcLoginUrl\": \"\"\n  }\n__EOF__\n}\ncopado_prepare_metadata_changes_list() {\ncopado --downloadfiles \"$file_changes_id\" --downloaddir /tmp/\ncommited_changes_file=$(</tmp/Copado\\ Commit\\ changes.json)\nmetadata_list=$(node -e \"console.log(($commited_changes_file.filter(element=>element.a!='Deleted').map(y=>y['t'].concat(':',y['n']))).toString())\")\n\n\n\n\n}\ncopadodx_retrieve_connected_org(){\n  copado -p \"Retrieving the metadata\"\n  echo $metadata_list\n  sfdx force:source:retrieve --json -u \"$source_sessionid\" -m \"$metadata_list\" > /app/sfdx_retrieve_result.json\n\n  \n  echo 'printing result'\n  cat /app/sfdx_retrieve_result.json\nretrieve_result=$(</app/sfdx_retrieve_result.json)\nfailed_metadata_list=$(node -e \"console.log($retrieve_result.result.inboundFiles.filter(element=>element.state=='Failed'))\")\ncheck_if_retrieve_failed=$(node -e \"console.log(($failed_metadata_list.length > 0) ? 'true': 'false')\")\necho \"check_if_retrieve_failed\"\necho $check_if_retrieve_failed\nif [ \"$check_if_retrieve_failed\" == \"true\" ]; then\n\techo 'in retrieve failed'\n\tmetadata_list_failed=$(node -e \"console.log($failed_metadata_list.map(y=>y['error']).toString())\")\n   copado -p \"Error\" -e \"Error retrieving metadata: $metadata_list_failed\" && exit 1\nfi\n}\n\ncopadodx_clean_sfdx_project_config_files(){\n\n  copado -p \"Cleanup config files\"\n  rm -rf .sfdx sfdx-project.json\n  cd ..\n}\n\ncopado_prepare_metadata_changes_list\ncopadodx_prepare_sfdx_project\ncopadodx_retrieve_connected_org\ncopadodx_clean_sfdx_project_config_files",
+          "copado__Type__c": "Standard",
+          "copado__Worker_Size__c": "S",
+          "CreatedDate": "2021-09-07T06:44:40.000+0000",
+          "Id": "a1t5f0000011DWqAAM",
+          "IsDeleted": false,
+          "LastModifiedDate": "2021-10-05T06:39:01.000+0000",
+          "LastReferencedDate": "2021-10-05T06:39:01.000+0000",
+          "LastViewedDate": "2021-10-05T06:39:01.000+0000",
+          "Name": "retrieve org metadata",
+          "SystemModstamp": "2021-10-05T06:39:01.000+0000"
+        },
+        {
+          "attributes": {
+            "type": "copado__Function__c",
+            "url": "/services/data/v52.0/sobjects/copado__Function__c/a1t5f0000011LVqAAM"
+          },
+          "copado__API_Name__c": "sfdx_commit_push",
+          "copado__Options__c": "[ ]",
+          "copado__Parameters__c": "[ {\n  \"required\" : false,\n  \"name\" : \"git_json\",\n  \"defaultValue\" : \"{$Context.Repository.Credential}\"\n}, {\n  \"required\" : false,\n  \"name\" : \"feature_branch\",\n  \"defaultValue\" : \"{$Context.JobExecution__r.DataJson.featureBranchName}\"\n} ]",
+          "copado__Script__c": "## Function:  core_git_push\n# Description:\n#    Push all branches that were created/changed\n#    Basic error handling\ncore_git_push(){\n\tcd /app/repository\n\tcopado -p \"Pushing all changes\"\n\tgit status\n\tgit push origin \"$feature_branch\" --atomic || ( copado --error-message \"Could not push the changes. Please check the logs for details\" && \texit 1 )\n}\ncore_git_push",
+          "copado__Type__c": "Standard",
+          "copado__Worker_Size__c": "S",
+          "CreatedDate": "2021-09-15T08:04:44.000+0000",
+          "Id": "a1t5f0000011LVqAAM",
+          "IsDeleted": false,
+          "LastModifiedDate": "2021-10-03T13:41:03.000+0000",
+          "LastReferencedDate": "2021-10-03T13:41:03.000+0000",
+          "LastViewedDate": "2021-10-03T13:41:03.000+0000",
+          "Name": "sfdx_commit_push",
+          "SystemModstamp": "2021-10-03T13:41:03.000+0000"
+        },
+        {
+          "attributes": {
+            "type": "copado__Function__c",
+            "url": "/services/data/v52.0/sobjects/copado__Function__c/a1t5f0000011UWwAAM"
+          },
+          "copado__API_Name__c": "sfdx_metadata_processor",
+          "copado__Image_Name__c": "us.gcr.io/copado-backend-functions-prod/copado-multicloud-dx:v1",
+          "copado__Options__c": "[ ]",
+          "copado__Parameters__c": "[ {\n  \"required\" : false,\n  \"name\" : \"file_changes_id\",\n  \"defaultValue\" : \"{$Context.JobExecution__r.DataJson.fileWithSelectedChanges}\"\n} ]",
+          "copado__Script__c": "default_sfdx_path='force-app/main/default'\nretrieve_path=\"/app/retrieve\"\noutput_path=\"/app/output\"\ngit_repository_path=\"/app/repository/\"\nmoved_metadata_path=\"/app/moved\"\ncd /app\ncopado --downloadfiles \"$file_changes_id\" --downloaddir /tmp/\n\ncommited_changes_file=\"/tmp/Copado Commit changes.json\"\ncommited_changes_file_renamed=\"/tmp/copado_commit_changes\"\ncommited_changes_file_content=$(</tmp/Copado\\ Commit\\ changes.json)\n\nmv \"$commited_changes_file\" \"$commited_changes_file_renamed\"\n\necho \"**************\"\n\nfind /app/moved | sed -e \"s/[^-][^\\/]*\\// |/g\" -e \"s/|\\([^ ]\\)/|-\\1/\"\n\necho \"**************\"\necho $commited_changes_file_content\necho \"**************\"\n\ncp -R -u -p $moved_metadata_path/* $git_repository_path\ncd $moved_metadata_path/ && find  . \\( ! -name \"*-meta.xml\" \\) -type f -exec cp -v -R {} $git_repository_path{} \\;\nmetadata-processor \"$commited_changes_file_renamed\" $moved_metadata_path $git_repository_path\n\necho $?",
+          "copado__Type__c": "Standard",
+          "copado__Worker_Size__c": "S",
+          "CreatedDate": "2021-09-23T11:15:09.000+0000",
+          "Id": "a1t5f0000011UWwAAM",
+          "IsDeleted": false,
+          "LastModifiedDate": "2021-10-05T10:21:27.000+0000",
+          "LastReferencedDate": "2021-10-05T10:21:27.000+0000",
+          "LastViewedDate": "2021-10-05T10:21:27.000+0000",
+          "Name": "sfdx_metadata_processor",
+          "SystemModstamp": "2021-10-05T10:21:27.000+0000"
+        },
+        {
+            "attributes": {
+              "type": "copado__Function__c",
+              "url": "/services/data/v52.0/sobjects/copado__Function__c/a1t5f0000011DA6AAM"
+            },
+            "copado__API_Name__c": "sfdx_deploy",
+            "copado__Description__c": "Deploys promotion branch",
+            "copado__Image_Name__c": "us.gcr.io/copado-backend-functions-prod/copado-multicloud-dx:v1",
+            "copado__Options__c": "[ ]",
+            "copado__Parameters__c": "[ {\n  \"required\" : true,\n  \"name\" : \"file_changes_id\",\n  \"defaultValue\" : \"{$Context.JobExecution__r.DataJson.fileWithSelectedChanges}\"\n}, {\n  \"required\" : true,\n  \"name\" : \"promotion\",\n  \"defaultValue\" : \"{$Context.JobExecution__r.DataJson.promotionBranchName}\"\n}, {\n  \"required\" : true,\n  \"name\" : \"target_branch\",\n  \"defaultValue\" : \"{$Context.JobExecution__r.DataJson.destinationBranchName}\"\n}, {\n  \"required\" : true,\n  \"name\" : \"instance_url\",\n  \"defaultValue\" : \"{$Destination.Credential.Endpoint}\"\n}, {\n  \"required\" : true,\n  \"name\" : \"accessToken\",\n  \"defaultValue\" : \"{$Destination.Credential.SessionId}\"\n}, {\n  \"required\" : true,\n  \"name\" : \"git_json\",\n  \"defaultValue\" : \"{$Context.Repository.Credential}\"\n} ]",
+            "copado__Script__c": "instance_url=($(node -p \"('$instance_url').substring(0, '$instance_url'.indexOf('.com') + 4)\"))\nbranch=\"$promotion\"\nmetadata_list=\"\"\n\ncopado_prepare_metadata_changes_list() {\n\tcopado --downloadfiles \"$file_changes_id\" --downloaddir /tmp/\n\tcommited_changes_file=$(</tmp/Copado\\ Deploy\\ changes.json)\n\tmetadata_list=$(node -e \"console.log(($commited_changes_file.map(y=>y['t'].concat(':',y['n']))).toString())\")\n}\n\ncopadodx_get_promotion(){\n  cd /app\n  mkdir -p /app/repository\n  cd /app/repository\n  copado --progress \"fetching $branch\"\n  copado-git-get \"$branch\"\n}\ncopadodx_process_metadata(){\ncopado --downloadfiles \"$file_changes_id\" --downloaddir /tmp/\n\ncommited_changes_file=\"/tmp/Copado Deploy changes.json\"\ncommited_changes_file_renamed=\"/tmp/copado_deploy_changes\"\ncommited_changes_file_content=$(</tmp/Copado\\ Deploy\\ changes.json)\nrepository_path=\"/app/repository\"\n\nmv \"$commited_changes_file\" \"$commited_changes_file_renamed\"\n\necho \"**************\"\n\nfind /app/repository | sed -e \"s/[^-][^\\/]*\\// |/g\" -e \"s/|\\([^ ]\\)/|-\\1/\"\n\necho \"**************\"\necho $commited_changes_file_content\necho \"**************\"\n\n\nmetadata-processor \"$commited_changes_file_renamed\" $repository_path\n}\n\ncopadodx_prepare_sfdx_project(){\nmkdir -p ./.sfdx\nmkdir -p ./force-app\n#NOTE: consider set instance url and not create sfdx-config file if it already exists\ncat << __EOF__ > ./.sfdx/sfdx-config.json\n{\n\"instanceUrl\": \"$instance_url\"\n}\n__EOF__\ncat << __EOF__ > ./sfdx-project.json\n  {\n      \"namespace\": \"\",\n      \"packageDirectories\": [\n          {\n          \"path\": \"force-app\",\n          \"default\": true\n          }\n      ],\n    \"sfdcLoginUrl\": \"\",\n    \"sourceApiVersion\": \"52.0\"\n  }\n__EOF__\n}\n\n# Deployment in the destination environment\ncopadodx_deploy_promotion(){\n    copado --progress \"deploying $metadata_list\"\n   \tsfdx force:source:deploy --json --targetusername \"$accessToken\" -m \"$metadata_list\" > /app/sfdx_deploy_result.json || true\n\n  \n  echo 'printing result'\n  cat /app/sfdx_deploy_result.json\n  retrieve_result=$(</app/sfdx_deploy_result.json)\nfailed_metadata_list=$(node -e \"console.log($retrieve_result.result.details.componentFailures)\")\ncheck_if_deploy_failed=$(node -e \"console.log($failed_metadata_list != undefined ? 'true': 'false')\")\necho \"check_if_deploy_failed\"\necho $check_if_deploy_failed\nif [ \"$check_if_deploy_failed\" == \"true\" ]; then\n\tmetadata_list_failed=$(node -e \"console.log(Array.isArray($failed_metadata_list) ? ($failed_metadata_list.map(y=>y['componentType'].concat(':', y['fullName'], ':', y['problem'])).toString()) : $failed_metadata_list['componentType'].concat(':',$failed_metadata_list['fullName'], ':',$failed_metadata_list['problem']).toString())\")\n   copado -p \"Consolidating Error Result\" -e \"Error deploying metadata: $metadata_list_failed\" && exit 1\nfi\n}\n\n# Promotion branch merged with destination branch\ncopadodx_merge_to_target(){\n\techo \"copadodx_merge_to_target\"\n\tgit reset --hard\n  \tgit_depth=${git_depth:-100}  # Set a default git depth of 100 commits\n\tcopado --progress \"merging $branch into $target_branch\"\n\tcopado-git-get --depth \"$git_depth\" \"$target_branch\"\n\tgit merge \"$branch\"\n    git push origin \"$target_branch\" --atomic || ( copado --error-message \"Could not push the changes. Please check the logs for details\" && exit 1 )\n}\n\ncopadodx_env_vars(){\n\techo \"Method Call copadodx_env_vars\"\n}\ncopadodx_yml_find_replace(){\n\techo \"Method Call copadodx_yml_find_replace\"\n}\n\ncopado_prepare_metadata_changes_list\ncopadodx_get_promotion\ncopadodx_process_metadata\ncopadodx_prepare_sfdx_project\ncopadodx_env_vars\ncopadodx_yml_find_replace\ncopadodx_deploy_promotion\ncopadodx_merge_to_target",
+            "copado__Type__c": "Standard",
+            "copado__Worker_Size__c": "M",
+            "CreatedDate": "2021-09-05T21:53:53.000+0000",
+            "Id": "a1t5f0000011DA6AAM",
+            "IsDeleted": false,
+            "LastModifiedDate": "2021-10-06T12:59:58.000+0000",
+            "LastReferencedDate": "2021-10-06T12:59:58.000+0000",
+            "LastViewedDate": "2021-10-06T12:59:58.000+0000",
+            "Name": "sfdx_deploy",
+            "SystemModstamp": "2021-10-06T12:59:58.000+0000"
+        },
+        {
+          "attributes": {
+            "type": "copado__Function__c",
+            "url": "/services/data/v52.0/sobjects/copado__Function__c/a1t5f0000011DADAA2"
+          },
+          "copado__API_Name__c": "sfdx_promote",
+          "copado__Description__c": "Creation of Promotion Branch and Promotion of user stories",
+          "copado__Image_Name__c": "us.gcr.io/copado/copado-function-core:v1",
+          "copado__Options__c": "[ ]",
+          "copado__Parameters__c": "[ {\n  \"required\" : true,\n  \"name\" : \"user_stories\",\n  \"defaultValue\" : \"{$Context.JobExecution__r.DataJson.userStoryBranches}\"\n}, {\n  \"required\" : true,\n  \"name\" : \"promotion\",\n  \"defaultValue\" : \"{$Context.JobExecution__r.DataJson.promotionBranchName}\"\n}, {\n  \"required\" : true,\n  \"name\" : \"target_branch\",\n  \"defaultValue\" : \"{$Context.JobExecution__r.DataJson.destinationBranchName}\"\n}, {\n  \"required\" : false,\n  \"name\" : \"tag\",\n  \"defaultValue\" : \"{$Context.JobExecution__r.Promotion__r.Release__r.Version__c}\"\n}, {\n  \"required\" : false,\n  \"name\" : \"merge_strategy\",\n  \"defaultValue\" : \"theirs\"\n}, {\n  \"required\" : true,\n  \"name\" : \"git_json\",\n  \"defaultValue\" : \"{$Context.Repository.Credential}\"\n}, {\n  \"required\" : false,\n  \"name\" : \"recreate_if_exists\",\n  \"defaultValue\" : \"true\"\n} ]",
+          "copado__Script__c": "promotion_branch=\"$promotion\"\ngit_depth=${git_depth:-100}  # set a default git depth of 100 commits\nmerge_strategy=${merge_strategy-theirs} # set default merge strategy to ours (only if unset)\nif [ -n \"$merge_strategy\" ]; then merge_strategy_option=(-X \"$merge_strategy\"); else merge_strategy_option=(); fi\n\n## Function:  core_git_fetch_create\n# Description:\n#    Fetch/checkout a repository branch, and optionally fetch/create/recreate a branch from it. Supports git-depth\n#    Basic error handling\n#\n# parameters:\n#    git_json\n#    git_depth\n#    target_branch (branch to fetch, and create a branch from)\n#    promotion_branch (optional name of a branch to create and checkout)\n#    recreate_if_exists (true/false along with create_branch_name, it will first delete the branch before creating it again )\n#    COPADO_SHARED_VOLUME (this might not be necessary after we have shared volumes)\n\ncore_git_fetch_create(){\ncopado -p \"Fetching Git branches: $target_branch $promotion_branch\"\ncopado-git-get --depth \"$git_depth\" \"$target_branch\"\n  if [ -n \"$promotion_branch\" ]; then\n      if [ $recreate_if_exists ]; then\n      \texists=$(git ls-remote --heads origin $promotion_branch | wc -l)\n      \tif [ -n \"$exists\" ]; then\n    \t\tcopado -p \"Removing branch $promotion_branch\"\n        \tgit push origin --delete \"$promotion_branch\" || true\n\t\tfi       \n      fi\n      copado -p \"Fetching/creating branch $promotion_branch\"\n      copado-git-get -c \"$promotion_branch\"\n  fi\n}\n\n## Function:  core_git_promotion\n# Description:\n#    Download Salesforce Metadata Commtied.json files\n#\t Fetch and merge each feature branch into the promotion branch\n#    Basic error handling\n#\n# parameters:\n#    (none)\n#    COPADO_SHARED_VOLUME (this might not be necessary after we have shared volumes)\n\ncore_git_promotion(){\n\ncopado -p \"Promoting changes\"\n\nreadarray -t user_stories_list < <(jq -r -c '.[]' <<< $user_stories)\n\nfor user_story in \"${user_stories_list[@]}\"\n      do\n          echo \"merging $user_story\"\n          copado-git-get --depth \"$git_depth\" \"$user_story\"\n          git checkout \"$promotion_branch\"\n          git merge \"${merge_strategy_option[@]}\" -m \"auto resolved $user_story win over $promotion_branch\" \"$user_story\"\n      done\n}\n\n## Function:  core_git_push\n# Description:\n#    Push all branches that were created/changed\n#    Basic error handling\n#\n# parameters:\n#    (none)\n#    COPADO_SHARED_VOLUME (this might not be necessary after we have shared volumes)\n\n\ncore_git_push(){\n\ncopado -p \"Pushing all changes\"\n\n  if [ -n \"$tag\" ]; then\n      git tag \"$tag\"\n      git push --all --atomic || ( copado --error-message \"Could not push the changes. Please check the logs for details\" && exit 1 )\n  else\n      echo \"not tag specified\"\n      git push origin \"$promotion_branch\" --atomic || ( copado --error-message \"Could not push the changes. Please check the logs for details\" && exit 1 )\n  fi\n}\n\n### Execute the functions:\n\ncore_git_fetch_create\ncore_git_promotion\ncore_git_push",
+          "copado__Type__c": "Standard",
+          "copado__Worker_Size__c": "S",
+          "CreatedDate": "2021-09-05T21:53:53.000+0000",
+          "Id": "a1t5f0000011DADAA2",
+          "IsDeleted": false,
+          "LastModifiedDate": "2021-09-29T05:29:47.000+0000",
+          "LastReferencedDate": "2021-09-29T05:29:47.000+0000",
+          "LastViewedDate": "2021-09-29T05:29:47.000+0000",
+          "Name": "sfdx_promote",
+          "SystemModstamp": "2021-09-29T05:29:47.000+0000"
+        }
+      ],
+      "ObjectType": "copado__Function__c"
+    },
+    {
+      "Records": [
+            {
+              "attributes": {
+                "type": "copado__JobTemplate__c",
+                "url": "/services/data/v52.0/sobjects/copado__JobTemplate__c/a1x5f000000x1jRAAQ"
+              },
+              "copado__ApiName__c": "sfdx_commit_1",
+              "copado__Type__c": "Standard",
+              "copado__Version__c": 1,
+              "copado__VolumeOptions__c": "[\n    {\n        \"name\": \"volumeSize\",\n        \"value\": \"10\"\n    },\n    {\n        \"name\": \"volumeTTL\",\n        \"value\": \"100\"\n    },\n    {\n        \"name\": \"preserveVolumeAfterExecution\",\n        \"value\": \"true\"\n    }\n]",
+              "CreatedDate": "2021-09-07T05:24:35.000+0000",
+              "Id": "a1x5f000000x1jRAAQ",
+              "IsDeleted": false,
+              "LastModifiedDate": "2021-09-29T07:52:08.000+0000",
+              "LastReferencedDate": "2021-10-03T11:46:08.000+0000",
+              "LastViewedDate": "2021-10-03T11:46:08.000+0000",
+              "Name": "sfdx_commit",
+              "SystemModstamp": "2021-09-29T07:52:08.000+0000"
+            },
+            {
+              "attributes": {
+                "type": "copado__JobTemplate__c",
+                "url": "/services/data/v52.0/sobjects/copado__JobTemplate__c/a1x5f000000xINfAAM"
+              },
+              "copado__ApiName__c": "sfdx_deploy_1",
+              "copado__Description__c": "<p>DX Source Deployment</p>",
+              "copado__Type__c": "Standard",
+              "copado__Version__c": 1,
+              "CreatedDate": "2021-09-23T11:55:21.000+0000",
+              "Id": "a1x5f000000xINfAAM",
+              "IsDeleted": false,
+              "LastModifiedDate": "2021-09-23T11:55:21.000+0000",
+              "LastReferencedDate": "2021-10-01T12:20:31.000+0000",
+              "LastViewedDate": "2021-10-01T12:20:31.000+0000",
+              "Name": "sfdx_deploy",
+              "SystemModstamp": "2021-09-23T11:55:21.000+0000"
+            },
+            {
+              "attributes": {
+                "type": "copado__JobTemplate__c",
+                "url": "/services/data/v52.0/sobjects/copado__JobTemplate__c/a1x5f000000xINkAAM"
+              },
+              "copado__ApiName__c": "sfdx_promote_1",
+              "copado__Description__c": "<p>DX Source Promote</p>",
+              "copado__Type__c": "Standard",
+              "copado__Version__c": 1,
+              "CreatedDate": "2021-09-23T12:29:53.000+0000",
+              "Id": "a1x5f000000xINkAAM",
+              "IsDeleted": false,
+              "LastModifiedDate": "2021-09-23T12:30:54.000+0000",
+              "LastReferencedDate": "2021-10-01T12:20:38.000+0000",
+              "LastViewedDate": "2021-10-01T12:20:38.000+0000",
+              "Name": "sfdx_promote",
+              "SystemModstamp": "2021-09-23T12:30:54.000+0000"
+            },
+            {
+              "attributes": {
+                "type": "copado__JobTemplate__c",
+                "url": "/services/data/v52.0/sobjects/copado__JobTemplate__c/a0t09000002vfF4AAI"
+              },
+              "copado__ApiName__c": "SFDX Package Distribution_1",
+              "copado__Type__c": "Standard",
+              "copado__Version__c": 1,
+              "CreatedDate": "2021-09-16T15:21:19.000+0000",
+              "Id": "a0t09000002vfF4AAI",
+              "IsDeleted": false,
+              "LastModifiedDate": "2021-09-16T15:21:19.000+0000",
+              "LastReferencedDate": "2021-09-17T13:53:20.000+0000",
+              "LastViewedDate": "2021-09-17T13:53:20.000+0000",
+              "Name": "SFDX Package Distribution",
+              "SystemModstamp": "2021-09-16T15:21:19.000+0000"
+            },
+            {
+              "attributes": {
+                "type": "copado__JobTemplate__c",
+                "url": "/services/data/v52.0/sobjects/copado__JobTemplate__c/a0t09000002vfccAAA"
+              },
+              "copado__ApiName__c": "SFDX Package Import_1",
+              "copado__Type__c": "Standard",
+              "copado__Version__c": 1,
+              "CreatedDate": "2021-09-17T14:07:46.000+0000",
+              "Id": "a0t09000002vfccAAA",
+              "IsDeleted": false,
+              "LastModifiedDate": "2021-10-04T09:11:43.000+0000",
+              "LastReferencedDate": "2021-10-04T09:11:43.000+0000",
+              "LastViewedDate": "2021-10-04T09:11:43.000+0000",
+              "Name": "SFDX Package Import",
+              "SystemModstamp": "2021-10-04T09:11:43.000+0000"
+            }
+      ],
+      "ObjectType": "copado__JobTemplate__c"
+    },
+    {
+      "Records": [
+          {
+            "attributes": {
+              "type": "copado__JobStep__c",
+              "url": "/services/data/v52.0/sobjects/copado__JobStep__c/a0s09000000K4IjAAK"
+            },
+            "copado__ApiName__c": "SFDX Package Distribution_Install package",
+            "copado__ConfigJson__c": "{\"functionName\":\"sfdx_install_package\",\"parameters\":[{\"name\":\"PACKAGES\",\"value\":\"{$Context.JobExecution__r.DataJson.PACKAGES}\"},{\"name\":\"SESSION\",\"value\":\"{$Destination.Credential.SessionId}\"},{\"name\":\"BASEURL\",\"value\":\"{$Destination.Credential.Endpoint}\"},{\"name\":\"WAIT\",\"value\":\"200\"}]}",
+            "copado__JobTemplate__c": "a0t09000002vfF4AAI",
+            "copado__Order__c": 1,
+            "copado__Type__c": "Function",
+            "CreatedDate": "2021-09-16T15:23:43.000+0000",
+            "Id": "a0s09000000K4IjAAK",
+            "IsDeleted": false,
+            "LastModifiedDate": "2021-09-30T06:42:28.000+0000",
+            "Name": "Install package",
+            "SystemModstamp": "2021-09-30T06:42:28.000+0000"
+          },
+          {
+            "attributes": {
+              "type": "copado__JobStep__c",
+              "url": "/services/data/v52.0/sobjects/copado__JobStep__c/a1w5f000000x5ucAAA"
+            },
+            "copado__ApiName__c": "sfdx_commit_sfdx_fetch_create_branch",
+            "copado__ConfigJson__c": "{\n\"functionName\":\"sfdx_fetch_create_branch\",\n\"parameters\":[\n{\n\"name\":\"feature_branch\",\n\"value\":\"{$Context.JobExecution__r.DataJson.featureBranchName}\"\n},\n{\n\"name\":\"base_branch\",\n\"value\":\"{$Context.JobExecution__r.DataJson.baseBranch}\"\n},\n{\n\"name\":\"recreate_if_exists\",\n\"value\":\"{$Context.JobExecution__r.DataJson.recreateFeatureBranch}\"\n},\n{\n\"name\":\"git_json\",\n\"value\":\"{$Context.Repository.Credential}\"\n}\n]\n}",
+            "copado__JobTemplate__c": "a1x5f000000x1jRAAQ",
+            "copado__Order__c": 3,
+            "copado__Type__c": "Function",
+            "CreatedDate": "2021-09-07T05:26:38.000+0000",
+            "Id": "a1w5f000000x5ucAAA",
+            "IsDeleted": false,
+            "LastModifiedDate": "2021-09-29T12:09:03.000+0000",
+            "Name": "sfdx_fetch_create_branch",
+            "SystemModstamp": "2021-09-29T12:09:03.000+0000"
+          },
+          {
+            "attributes": {
+              "type": "copado__JobStep__c",
+              "url": "/services/data/v52.0/sobjects/copado__JobStep__c/a1w5f000000x7ZjAAI"
+            },
+            "copado__ApiName__c": "sfdx_commit_Retrieve org metadata",
+            "copado__ConfigJson__c": "{\n\"functionName\": \"retrieve_org_metadata\",\n\"parameters\": [\n{\n\"name\": \"file_changes_id\",\n\"value\": \"{$Context.JobExecution__r.DataJson.fileWithSelectedChanges}\"\n},\n{\n\"name\": \"source_path\",\n\"value\": \"force-app\"\n},\n{\n\"name\": \"source_sessionid\",\n\"value\": \"{$Source.Credential.SessionId}\"\n},\n{\n\"name\": \"source_endpoint\",\n\"value\": \"{$Source.Credential.Endpoint}\"\n},\n{\n\"name\": \"namespace\",\n\"value\": \"\"\n}\n]\n}",
+            "copado__JobTemplate__c": "a1x5f000000x1jRAAQ",
+            "copado__Order__c": 1,
+            "copado__Type__c": "Function",
+            "CreatedDate": "2021-09-08T07:39:27.000+0000",
+            "Id": "a1w5f000000x7ZjAAI",
+            "IsDeleted": false,
+            "LastModifiedDate": "2021-09-29T11:56:24.000+0000",
+            "Name": "Retrieve org metadata",
+            "SystemModstamp": "2021-09-29T11:56:24.000+0000"
+          },
+          {
+            "attributes": {
+              "type": "copado__JobStep__c",
+              "url": "/services/data/v52.0/sobjects/copado__JobStep__c/a1w5f000000xAtoAAE"
+            },
+            "copado__ApiName__c": "sfdx_commit_Git commit",
+            "copado__ConfigJson__c": "{\n\"functionName\": \"sfdx_git_commit\",\n\"parameters\": [\n{\n\"name\": \"commit_message\",\n\"value\":\"{$Context.JobExecution__r.DataJson.message}\"\n},\n{\n\"name\": \"git_json\",\n\"value\": \"{$Context.Repository.Credential}\"\n},\n{\n\"name\": \"git_email\",\n\"value\": \"{$User.Email}\"\n},\n{\n\"name\": \"git_name\",\n\"value\": \"{$User.Name}\"\n}\n]\n}",
+            "copado__JobTemplate__c": "a1x5f000000x1jRAAQ",
+            "copado__Order__c": 5,
+            "copado__Type__c": "Function",
+            "CreatedDate": "2021-09-10T02:41:46.000+0000",
+            "Id": "a1w5f000000xAtoAAE",
+            "IsDeleted": false,
+            "LastModifiedDate": "2021-09-29T10:08:25.000+0000",
+            "Name": "Git commit",
+            "SystemModstamp": "2021-09-29T10:08:25.000+0000"
+          },
+          {
+            "attributes": {
+              "type": "copado__JobStep__c",
+              "url": "/services/data/v52.0/sobjects/copado__JobStep__c/a1w5f000000xHQIAA2"
+            },
+            "copado__ApiName__c": "sfdx_commit_Git Push",
+            "copado__ConfigJson__c": "{\n\"functionName\": \"sfdx_commit_push\",\n\"parameters\": [\n{\n\"name\":\"git_json\",\n\"value\":\"{$Context.Repository.Credential}\"\n},\n{\n\"name\":\"feature_branch\",\n\"value\":\"{$Context.JobExecution__r.DataJson.featureBranchName}\"\n}\n]\n}",
+            "copado__JobTemplate__c": "a1x5f000000x1jRAAQ",
+            "copado__Order__c": 6,
+            "copado__Type__c": "Function",
+            "CreatedDate": "2021-09-15T08:13:11.000+0000",
+            "Id": "a1w5f000000xHQIAA2",
+            "IsDeleted": false,
+            "LastModifiedDate": "2021-09-29T10:08:42.000+0000",
+            "Name": "Git Push",
+            "SystemModstamp": "2021-09-29T10:08:42.000+0000"
+          },
+          {
+            "attributes": {
+              "type": "copado__JobStep__c",
+              "url": "/services/data/v52.0/sobjects/copado__JobStep__c/a1w5f000000xSLOAA2"
+            },
+            "copado__ApiName__c": "sfdx_commit_sfdx_move_metadata_changes",
+            "copado__ConfigJson__c": "{\n\"functionName\": \"sfdx_move_metadata_changes\",\n\"parameters\": [\n{\n\"name\": \"file_changes_id\",\n\"value\": \"{$Context.JobExecution__r.DataJson.fileWithSelectedChanges}\"\n}\n]\n}",
+            "copado__JobTemplate__c": "a1x5f000000x1jRAAQ",
+            "copado__Order__c": 2,
+            "copado__Type__c": "Function",
+            "CreatedDate": "2021-09-23T12:37:47.000+0000",
+            "Id": "a1w5f000000xSLOAA2",
+            "IsDeleted": false,
+            "LastModifiedDate": "2021-09-29T12:08:41.000+0000",
+            "Name": "sfdx_move_metadata_changes",
+            "SystemModstamp": "2021-09-29T12:08:41.000+0000"
+          },
+          {
+            "attributes": {
+              "type": "copado__JobStep__c",
+              "url": "/services/data/v52.0/sobjects/copado__JobStep__c/a1w5f000000xSLTAA2"
+            },
+            "copado__ApiName__c": "sfdx_commit_sfdx_metadata_processor",
+            "copado__ConfigJson__c": "{\n\"functionName\": \"sfdx_metadata_processor\",\n\"parameters\": [\n{\n\"name\": \"file_changes_id\",\n\"value\": \"{$Context.JobExecution__r.DataJson.fileWithSelectedChanges}\"\n}\n]\n}",
+            "copado__JobTemplate__c": "a1x5f000000x1jRAAQ",
+            "copado__Order__c": 4,
+            "copado__Type__c": "Function",
+            "CreatedDate": "2021-09-23T12:39:00.000+0000",
+            "Id": "a1w5f000000xSLTAA2",
+            "IsDeleted": false,
+            "LastModifiedDate": "2021-09-29T10:07:41.000+0000",
+            "Name": "sfdx_metadata_processor",
+            "SystemModstamp": "2021-09-29T10:07:41.000+0000"
+          },
+          {
+            "attributes": {
+              "type": "copado__JobStep__c",
+              "url": "/services/data/v52.0/sobjects/copado__JobStep__c/a1w5f000000xSLEAA2"
+            },
+            "copado__ApiName__c": "sfdx_deploy_sfdx_deploy",
+            "copado__ConfigJson__c": "{\"functionName\":\"sfdx_deploy\",\"parameters\":[{\"name\":\"file_changes_id\",\"value\":\"{$Context.JobExecution__r.DataJson.fileWithSelectedChanges}\"},{\"name\":\"promotion\",\"value\":\"{$Context.JobExecution__r.DataJson.promotionBranchName}\"},{\"name\":\"target_branch\",\"value\":\"{$Context.JobExecution__r.DataJson.destinationBranchName}\"},{\"name\":\"instance_url\",\"value\":\"{$Destination.Credential.Endpoint}\"},{\"name\":\"accessToken\",\"value\":\"{$Destination.Credential.SessionId}\"},{\"name\":\"git_json\",\"value\":\"{$Context.Repository.Credential}\"}]}",
+            "copado__JobTemplate__c": "a1x5f000000xINfAAM",
+            "copado__Order__c": 1,
+            "copado__Type__c": "Function",
+            "CreatedDate": "2021-09-23T11:57:15.000+0000",
+            "Id": "a1w5f000000xSLEAA2",
+            "IsDeleted": false,
+            "LastModifiedDate": "2021-09-29T04:55:39.000+0000",
+            "Name": "sfdx_deploy",
+            "SystemModstamp": "2021-09-29T04:55:39.000+0000"
+          },
+          {
+            "attributes": {
+              "type": "copado__JobStep__c",
+              "url": "/services/data/v52.0/sobjects/copado__JobStep__c/a1w5f000000xSLJAA2"
+            },
+            "copado__ApiName__c": "sfdx_promote_sfdx_promote",
+            "copado__ConfigJson__c": "{\"functionName\":\"sfdx_promote\",\"parameters\":[{\"name\":\"user_stories\",\"value\":\"{$Context.JobExecution__r.DataJson.userStoryBranches}\"},{\"name\":\"promotion\",\"value\":\"{$Context.JobExecution__r.DataJson.promotionBranchName}\"},{\"name\":\"target_branch\",\"value\":\"{$Context.JobExecution__r.DataJson.destinationBranchName}\"},{\"name\":\"tag\",\"value\":\"{$Context.JobExecution__r.Promotion__r.Release__r.Version__c}\"},{\"name\":\"merge_strategy\",\"value\":\"theirs\"},{\"name\":\"git_json\",\"value\":\"{$Context.Repository.Credential}\"},{\"name\":\"recreate_if_exists\",\"value\":\"true\"}]}",
+            "copado__JobTemplate__c": "a1x5f000000xINkAAM",
+            "copado__Order__c": 1,
+            "copado__Type__c": "Function",
+            "CreatedDate": "2021-09-23T12:32:07.000+0000",
+            "Id": "a1w5f000000xSLJAA2",
+            "IsDeleted": false,
+            "LastModifiedDate": "2021-09-29T05:30:10.000+0000",
+            "Name": "sfdx_promote",
+            "SystemModstamp": "2021-09-29T05:30:10.000+0000"
+          },
+          {
+            "attributes": {
+              "type": "copado__JobStep__c",
+              "url": "/services/data/v52.0/sobjects/copado__JobStep__c/a0s09000000KT2TAAW"
+            },
+            "copado__ApiName__c": "SFDX Package Import_Retrieve Package Information",
+            "copado__ConfigJson__c": "{\"functionName\":\"Devhub_Package_Info\",\"parameters\":[{\"name\":\"PACKAGE\",\"value\":\"{$Context.JobExecution__r.DataJson.packageNameOrId}\"},{\"name\":\"SESSION\",\"value\":\"{$Source.Credential.SessionId}\"},{\"name\":\"BASEURL\",\"value\":\"{$Source.Credential.Endpoint}\"}]}",
+            "copado__JobTemplate__c": "a0t09000002vfccAAA",
+            "copado__Order__c": 2,
+            "copado__Type__c": "Function",
+            "CreatedDate": "2021-10-04T09:11:43.000+0000",
+            "Id": "a0s09000000KT2TAAW",
+            "IsDeleted": false,
+            "LastModifiedDate": "2021-10-04T09:59:20.000+0000",
+            "Name": "Retrieve Package Information",
+            "SystemModstamp": "2021-10-04T09:59:20.000+0000"
+          },
+          {
+            "attributes": {
+              "type": "copado__JobStep__c",
+              "url": "/services/data/v52.0/sobjects/copado__JobStep__c/a0s09000000KT2UAAW"
+            },
+            "copado__ApiName__c": "SFDX Package Import_Upsert Package Information",
+            "copado__ConfigJson__c": "{\"flowName\":\"cmcSf.Create_Package\",\"parameters\":[{\"name\":\"type\",\"value\":\"wait\"},{\"name\":\"packageJson\",\"value\":\"{$Job.PrevStep.Result__r.Result_Data__c}\"},{\"name\":\"jobExecutionId\",\"value\":\"{$Context.JobExecution__c}\"},{\"name\":\"pipelineId\",\"value\":\"{$Context.JobExecution__r.DataJson.pipelineId}\"},{\"name\":\"jsonInformation\",\"value\":\"{$Context.JobExecution__r.DataJson.jsonInformation}\"}]}",
+            "copado__JobTemplate__c": "a0t09000002vfccAAA",
+            "copado__Order__c": 3,
+            "copado__Type__c": "Flow",
+            "CreatedDate": "2021-10-04T09:11:43.000+0000",
+            "Id": "a0s09000000KT2UAAW",
+            "IsDeleted": false,
+            "LastModifiedDate": "2021-10-04T09:15:58.000+0000",
+            "Name": "Upsert Package Information",
+            "SystemModstamp": "2021-10-04T09:15:58.000+0000"
+          },
+          {
+            "attributes": {
+              "type": "copado__JobStep__c",
+              "url": "/services/data/v52.0/sobjects/copado__JobStep__c/a0s09000000KT2WAAW"
+            },
+            "copado__ApiName__c": "SFDX Package Import_Update Source on Job Execution",
+            "copado__ConfigJson__c": "{\"flowName\":\"cmcSf.Update_Source_on_Job_Execution\",\"parameters\":[{\"name\":\"type\",\"value\":\"wait\"},{\"name\":\"jsonInformation\",\"value\":\"{$Context.JobExecution__r.DataJson.jsonInformation}\"}]}",
+            "copado__JobTemplate__c": "a0t09000002vfccAAA",
+            "copado__Order__c": 1,
+            "copado__Type__c": "Flow",
+            "CreatedDate": "2021-10-04T09:14:13.000+0000",
+            "Id": "a0s09000000KT2WAAW",
+            "IsDeleted": false,
+            "LastModifiedDate": "2021-10-04T10:48:24.000+0000",
+            "Name": "Update Source on Job Execution",
+            "SystemModstamp": "2021-10-04T10:48:24.000+0000"
+          }
+      ],
+      "ObjectType": "copado__JobStep__c"
+    }
+  ],
+  "blobsByUID": {}
+}
